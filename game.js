@@ -412,13 +412,6 @@ function updatePhysics() {
     // Check if player reached the goal
     checkVictory();
     
-    // Update checkpoint if player is stable on a high platform
-    if (player.onGround && !wasOnGround && player.y < player.checkpoint.y - 50) {
-        player.checkpoint = { x: player.x, y: player.y };
-        // Update the checkpoint platform
-        player.checkpointPlatform = findCheckpointPlatform();
-    }
-    
     // Update checkpoint glow effect
     checkpointGlowIntensity += CHECKPOINT_PULSE_SPEED * checkpointPulseDirection;
     
@@ -433,6 +426,8 @@ function updatePhysics() {
 }
 
 function checkCollisions() {
+    player.onGround = false;
+    
     // Check collision with each object in the level
     for (const obj of currentLevel) {
         // Simple AABB collision detection
@@ -457,6 +452,13 @@ function checkCollisions() {
                 player.y = obj.y - player.height;
                 player.vy = 0;
                 player.onGround = true;
+                
+                // Only update checkpoint if this platform is higher than the current checkpoint
+                // or if there is no checkpoint yet
+                if (!player.checkpointPlatform || obj.y < player.checkpointPlatform.y) {
+                    player.checkpoint = { x: player.x, y: player.y };
+                    player.checkpointPlatform = obj;
+                }
                 
                 // Apply friction to horizontal movement
                 const frictionFactor = obj.friction || FRICTION;
@@ -524,13 +526,8 @@ function render() {
 function drawLevel() {
     // Draw each object in the level
     for (const obj of currentLevel) {
-        // Draw checkpoint glow for the current checkpoint position only
-        // Check if this platform contains the player's checkpoint position
-        if ((obj.x <= player.checkpoint.x && 
-             obj.x + obj.width >= player.checkpoint.x &&
-             obj.y <= player.checkpoint.y + player.height && 
-             obj.y + obj.height >= player.checkpoint.y)) {
-            
+        // Draw checkpoint glow for the current checkpoint platform
+        if (player.checkpointPlatform && obj === player.checkpointPlatform) {
             // Draw glowing effect
             ctx.fillStyle = CHECKPOINT_GLOW_COLOR;
             ctx.globalAlpha = checkpointGlowIntensity;
@@ -805,6 +802,7 @@ function gameLoop() {
 function init() {
     loadAssets();
     resetGame();
+    player.checkpointPlatform = findCheckpointPlatform();
     gameLoop();
 }
 
