@@ -1,6 +1,9 @@
 // Kettlebell Climber - A "Getting Over It" inspired physics-based platformer
 // Main game logic
 
+// Get audio elements
+const bounceSound = document.getElementById("bounceSound");
+
 // ===== Canvas Setup =====
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -32,6 +35,11 @@ const JUMP_VELOCITY_SCALE = 1.5;     // Scale factor for jump velocity
 const HORIZONTAL_VELOCITY_SCALE = 10; // Scale factor for horizontal velocity
 const FRICTION = 0.95;               // Friction when sliding on surfaces
 const BOUNCE_FACTOR = 0.3;           // Bounciness when hitting objects
+
+// ===== Visual Effects =====
+let bounceParticles = [];  // Array to store bounce effect particles
+let screenShake = 0;       // Current screen shake duration
+let screenShakeIntensity = 0; // Screen shake intensity
 
 // ===== Asset Loading =====
 const ASSETS = {
@@ -278,6 +286,28 @@ function releaseJump() {
     
     // Start kettlebell swing animation
     player.kettlebellSwing = 1.0;
+    
+    // Create bounce effect
+    bounceParticles.push(...createBounceEffect(player.x + player.width / 2, player.y + player.height, player.chargeDirection));
+}
+
+// Function to create bounce particles
+function createBounceEffect(x, y, direction) {
+    const particleCount = 8;
+    const particles = [];
+    
+    for (let i = 0; i < particleCount; i++) {
+        particles.push({
+            x: x,
+            y: y,
+            vx: (Math.random() - 0.5) * 5 * direction,
+            vy: (Math.random() - 0.5) * 5,
+            size: Math.random() * 4 + 2,
+            life: 1.0 // Full life
+        });
+    }
+    
+    return particles;
 }
 
 function resetPlayer() {
@@ -382,6 +412,19 @@ function updatePhysics() {
     if (player.onGround && !wasOnGround && player.y < player.checkpoint.y - 50) {
         player.checkpoint = { x: player.x, y: player.y };
     }
+    
+    // Update bounce particles
+    for (let i = bounceParticles.length - 1; i >= 0; i--) {
+        const particle = bounceParticles[i];
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        particle.vy += GRAVITY;
+        particle.life -= 0.05;
+        
+        if (particle.life <= 0) {
+            bounceParticles.splice(i, 1);
+        }
+    }
 }
 
 function checkCollisions() {
@@ -426,11 +469,41 @@ function checkCollisions() {
                 // Hitting left side of object
                 player.x = obj.x - player.width;
                 player.vx = -player.vx * (obj.bounce || BOUNCE_FACTOR);
+                
+                // Play bounce sound if velocity is significant
+                if (Math.abs(player.vx) > 2) {
+                    bounceSound.currentTime = 0;
+                    bounceSound.play();
+                    
+                    // Create bounce particles
+                    bounceParticles = bounceParticles.concat(
+                        createBounceEffect(player.x + player.width, player.y + player.height/2, 1)
+                    );
+                    
+                    // Add screen shake based on impact velocity
+                    screenShakeIntensity = Math.min(5, Math.abs(player.vx) / 2);
+                    screenShake = 5;
+                }
             }
             else if (minOverlap === overlapRight && player.vx <= 0) {
                 // Hitting right side of object
                 player.x = obj.x + obj.width;
                 player.vx = -player.vx * (obj.bounce || BOUNCE_FACTOR);
+                
+                // Play bounce sound if velocity is significant
+                if (Math.abs(player.vx) > 2) {
+                    bounceSound.currentTime = 0;
+                    bounceSound.play();
+                    
+                    // Create bounce particles
+                    bounceParticles = bounceParticles.concat(
+                        createBounceEffect(player.x, player.y + player.height/2, -1)
+                    );
+                    
+                    // Add screen shake based on impact velocity
+                    screenShakeIntensity = Math.min(5, Math.abs(player.vx) / 2);
+                    screenShake = 5;
+                }
             }
         }
     }
@@ -439,10 +512,40 @@ function checkCollisions() {
     if (player.x < 0) {
         player.x = 0;
         player.vx = -player.vx * BOUNCE_FACTOR;
+        
+        // Play bounce sound if velocity is significant
+        if (Math.abs(player.vx) > 2) {
+            bounceSound.currentTime = 0;
+            bounceSound.play();
+            
+            // Create bounce particles
+            bounceParticles = bounceParticles.concat(
+                createBounceEffect(player.x, player.y + player.height/2, -1)
+            );
+            
+            // Add screen shake based on impact velocity
+            screenShakeIntensity = Math.min(5, Math.abs(player.vx) / 2);
+            screenShake = 5;
+        }
     }
     else if (player.x + player.width > canvas.width) {
         player.x = canvas.width - player.width;
         player.vx = -player.vx * BOUNCE_FACTOR;
+        
+        // Play bounce sound if velocity is significant
+        if (Math.abs(player.vx) > 2) {
+            bounceSound.currentTime = 0;
+            bounceSound.play();
+            
+            // Create bounce particles
+            bounceParticles = bounceParticles.concat(
+                createBounceEffect(player.x + player.width, player.y + player.height/2, 1)
+            );
+            
+            // Add screen shake based on impact velocity
+            screenShakeIntensity = Math.min(5, Math.abs(player.vx) / 2);
+            screenShake = 5;
+        }
     }
 }
 
@@ -450,6 +553,15 @@ function checkCollisions() {
 function render() {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Apply screen shake if active
+    if (screenShake > 0) {
+        const shakeX = (Math.random() - 0.5) * screenShakeIntensity;
+        const shakeY = (Math.random() - 0.5) * screenShakeIntensity;
+        ctx.save();
+        ctx.translate(shakeX, shakeY);
+        screenShake--;
+    }
     
     // Draw background (gradient for now)
     const bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
@@ -464,12 +576,25 @@ function render() {
     // Draw player
     drawPlayer();
     
+    // Draw bounce particles
+    for (const particle of bounceParticles) {
+        ctx.fillStyle = `rgba(255, 153, 51, ${particle.life})`;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
     // Draw UI
     drawUI();
     
     // Draw victory screen if applicable
     if (gameState === 'victory') {
         drawVictoryScreen();
+    }
+    
+    // Reset context if screen shake was applied
+    if (screenShake > 0) {
+        ctx.restore();
     }
 }
 
@@ -514,35 +639,144 @@ function drawLevel() {
 }
 
 function drawPlayer() {
-    // Draw player body
-    ctx.fillStyle = '#e74c3c';
-    ctx.fillRect(player.x, player.y, player.width, player.height);
+    // Draw player as a QWOP-like stick figure
+    const centerX = player.x + player.width / 2;
+    const headY = player.y + 10;
+    const torsoY = player.y + 35;
+    
+    // Save context for rotation if needed
+    ctx.save();
+    
+    // Apply slight lean based on velocity
+    const leanAngle = player.vx * 0.01;
+    ctx.translate(centerX, player.y);
+    ctx.rotate(leanAngle);
+    ctx.translate(-centerX, -player.y);
+    
+    // Draw head
+    ctx.fillStyle = '#F5D0A9'; // Skin tone
+    ctx.beginPath();
+    ctx.arc(centerX, headY, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    // Draw torso
+    ctx.beginPath();
+    ctx.moveTo(centerX, headY + 10);
+    ctx.lineTo(centerX, torsoY);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    
+    // Draw arms
+    ctx.beginPath();
+    
+    // Left arm (changes with kettlebell position)
+    const leftArmAngle = player.kettlebellAngle - Math.PI/4;
+    const leftShoulderX = centerX - 2;
+    const leftShoulderY = headY + 15;
+    const leftElbowX = leftShoulderX - 10;
+    const leftElbowY = leftShoulderY + 5;
+    
+    ctx.moveTo(leftShoulderX, leftShoulderY);
+    ctx.lineTo(leftElbowX, leftElbowY);
+    
+    // Right arm
+    const rightShoulderX = centerX + 2;
+    const rightShoulderY = headY + 15;
+    const rightElbowX = rightShoulderX + 8;
+    const rightElbowY = rightShoulderY + 10;
+    const rightHandX = rightElbowX + 5;
+    const rightHandY = rightElbowY + 5;
+    
+    ctx.moveTo(rightShoulderX, rightShoulderY);
+    ctx.lineTo(rightElbowX, rightElbowY);
+    ctx.lineTo(rightHandX, rightHandY);
+    
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Draw legs
+    const hipY = torsoY;
+    const kneeY = hipY + 15;
+    const footY = player.y + player.height;
+    
+    // Left leg
+    const leftHipX = centerX - 5;
+    const leftKneeX = leftHipX - 5;
+    const leftFootX = leftKneeX - 5;
+    
+    ctx.beginPath();
+    ctx.moveTo(leftHipX, hipY);
+    ctx.lineTo(leftKneeX, kneeY);
+    ctx.lineTo(leftFootX, footY);
+    
+    // Right leg
+    const rightHipX = centerX + 5;
+    const rightKneeX = rightHipX + 5;
+    const rightFootX = rightKneeX + 5;
+    
+    ctx.beginPath();
+    ctx.moveTo(leftHipX, hipY);
+    ctx.lineTo(leftKneeX, kneeY);
+    ctx.lineTo(leftFootX, footY);
+    ctx.moveTo(rightHipX, hipY);
+    ctx.lineTo(rightKneeX, kneeY);
+    ctx.lineTo(rightFootX, footY);
+    
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Draw body (shirt)
+    ctx.beginPath();
+    ctx.moveTo(centerX - 8, headY + 10);
+    ctx.lineTo(centerX - 8, torsoY);
+    ctx.lineTo(centerX + 8, torsoY);
+    ctx.lineTo(centerX + 8, headY + 10);
+    ctx.closePath();
+    ctx.fillStyle = '#e74c3c'; // Red shirt
+    ctx.fill();
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.stroke();
     
     // Draw kettlebell
-    const kettlebellSize = 20;
-    const kettlebellX = player.x + player.width / 2;
-    const kettlebellY = player.y + player.height - 10;
+    const kettlebellSize = 15;
     
-    // Apply swing animation
-    ctx.save();
-    ctx.translate(kettlebellX, kettlebellY);
+    // Apply kettlebell position based on arm angle
+    const kettlebellDistance = 25;
+    const kettlebellX = leftElbowX + Math.cos(leftArmAngle) * kettlebellDistance;
+    const kettlebellY = leftElbowY + Math.sin(leftArmAngle) * kettlebellDistance;
     
-    // Rotate based on charge and swing
-    let angle = player.kettlebellAngle;
-    if (player.kettlebellSwing > 0) {
-        angle += player.chargeDirection * Math.sin(player.kettlebellSwing * Math.PI) * 1.2;
-    }
-    ctx.rotate(angle);
+    // Draw arm holding kettlebell
+    ctx.beginPath();
+    ctx.moveTo(leftElbowX, leftElbowY);
+    ctx.lineTo(kettlebellX, kettlebellY - kettlebellSize/2);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.stroke();
     
     // Draw kettlebell
     ctx.fillStyle = '#333';
     ctx.beginPath();
-    ctx.arc(0, 0, kettlebellSize / 2, 0, Math.PI * 2);
+    ctx.arc(kettlebellX, kettlebellY, kettlebellSize, 0, Math.PI * 2);
     ctx.fill();
     
-    // Draw handle
-    ctx.fillRect(-kettlebellSize / 4, -kettlebellSize / 2, kettlebellSize / 2, -kettlebellSize / 2);
+    // Draw kettlebell handle
+    ctx.beginPath();
+    ctx.moveTo(kettlebellX - kettlebellSize/3, kettlebellY - kettlebellSize);
+    ctx.lineTo(kettlebellX + kettlebellSize/3, kettlebellY - kettlebellSize);
+    ctx.lineTo(kettlebellX + kettlebellSize/3, kettlebellY - kettlebellSize/2);
+    ctx.lineTo(kettlebellX - kettlebellSize/3, kettlebellY - kettlebellSize/2);
+    ctx.closePath();
+    ctx.fillStyle = '#555';
+    ctx.fill();
     
+    // Restore context
     ctx.restore();
     
     // Draw charge meter if charging
