@@ -94,6 +94,7 @@ let player = {
     jumpCount: 0,                // count of jumps made
     fallCount: 0,                // count of falls
     startTime: Date.now(),       // time when level started
+    victoryTime: null,           // time when player reached the goal (null if not yet won)
     checkpoint: {                // last safe position
         x: 50,
         y: canvas.height - 100
@@ -330,6 +331,7 @@ function resetGame() {
         jumpCount: 0,
         fallCount: 0,
         startTime: Date.now(),
+        victoryTime: null,
         checkpoint: {
             x: 50,
             y: canvas.height - 100
@@ -342,13 +344,29 @@ function resetGame() {
 function checkVictory() {
     // Check if player reached the goal platform (last platform in the level)
     const goal = currentLevel[currentLevel.length - 1];
+    
+    // More lenient collision detection for the goal
     if (
-        player.x > goal.x && 
+        player.x + player.width > goal.x && 
         player.x < goal.x + goal.width &&
         player.y + player.height > goal.y &&
-        player.y + player.height < goal.y + goal.height + 5
+        player.y < goal.y + goal.height
     ) {
+        // Immediately stop the game and display victory
         gameState = 'victory';
+        
+        // Store the exact time of victory
+        player.victoryTime = Date.now();
+        
+        // Stop player movement
+        player.vx = 0;
+        player.vy = 0;
+        
+        // Ensure player stays on the platform
+        player.y = goal.y - player.height;
+        
+        // Log victory for debugging
+        console.log("Victory condition met! Game ended.");
     }
 }
 
@@ -756,6 +774,7 @@ function drawUI() {
     const elapsedTime = Math.floor((Date.now() - player.startTime) / 1000);
     const minutes = Math.floor(elapsedTime / 60);
     const seconds = elapsedTime % 60;
+    
     ctx.fillText(`Time: ${minutes}:${seconds.toString().padStart(2, '0')}`, 20, 80);
     
     // Draw controls help
@@ -769,26 +788,31 @@ function drawVictoryScreen() {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
+    // Large "CLEAR" text in green
+    ctx.fillStyle = '#00FF00'; // Bright green color
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 72px Arial';
+    ctx.fillText('CLEAR', canvas.width / 2, canvas.height / 2 - 80);
+    
     // Victory message
     ctx.fillStyle = '#fff';
-    ctx.textAlign = 'center';
     ctx.font = '36px Arial';
-    ctx.fillText('Victory!', canvas.width / 2, canvas.height / 2 - 50);
+    ctx.fillText('Victory!', canvas.width / 2, canvas.height / 2);
     
     // Stats
     ctx.font = '24px Arial';
     
-    const elapsedTime = Math.floor((Date.now() - player.startTime) / 1000);
-    const minutes = Math.floor(elapsedTime / 60);
-    const seconds = elapsedTime % 60;
+    const victoryTime = Math.floor((player.victoryTime - player.startTime) / 1000);
+    const minutes = Math.floor(victoryTime / 60);
+    const seconds = victoryTime % 60;
     
-    ctx.fillText(`Time: ${minutes}:${seconds.toString().padStart(2, '0')}`, canvas.width / 2, canvas.height / 2);
-    ctx.fillText(`Jumps: ${player.jumpCount}`, canvas.width / 2, canvas.height / 2 + 40);
-    ctx.fillText(`Falls: ${player.fallCount}`, canvas.width / 2, canvas.height / 2 + 80);
+    ctx.fillText(`Time: ${minutes}:${seconds.toString().padStart(2, '0')}`, canvas.width / 2, canvas.height / 2 + 50);
+    ctx.fillText(`Jumps: ${player.jumpCount}`, canvas.width / 2, canvas.height / 2 + 90);
+    ctx.fillText(`Falls: ${player.fallCount}`, canvas.width / 2, canvas.height / 2 + 130);
     
     // Restart prompt
     ctx.font = '20px Arial';
-    ctx.fillText('Press SPACE to play again', canvas.width / 2, canvas.height / 2 + 140);
+    ctx.fillText('Press SPACE to play again', canvas.width / 2, canvas.height / 2 + 180);
 }
 
 // ===== Game Loop =====
