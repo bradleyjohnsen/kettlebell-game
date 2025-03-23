@@ -425,6 +425,11 @@ function updatePhysics() {
         if (player.kettlebellSwing < 0) player.kettlebellSwing = 0;
     }
     
+    // If on ground, ensure no horizontal movement
+    if (player.onGround && !player.charging) {
+        player.vx = 0;
+    }
+    
     // Move player
     player.x += player.vx;
     player.y += player.vy;
@@ -441,9 +446,12 @@ function updatePhysics() {
         resetPlayer();
     }
     
-    // Apply air resistance
+    // Apply air resistance only when in air
     if (!player.onGround) {
         player.vx *= 0.98;
+    } else {
+        // Ensure no horizontal movement when on ground
+        player.vx = 0;
     }
     
     // Check if player reached the goal
@@ -497,12 +505,8 @@ function checkCollisions() {
                     player.checkpointPlatform = obj;
                 }
                 
-                // Apply friction to horizontal movement
-                const frictionFactor = obj.friction || FRICTION;
-                player.vx *= frictionFactor;
-                
-                // If almost stopped, stop completely
-                if (Math.abs(player.vx) < 0.1) player.vx = 0;
+                // Immediately stop horizontal movement when landing
+                player.vx = 0;
             } 
             else if (minOverlap === overlapBottom && player.vy <= 0) {
                 // Hitting bottom of object
