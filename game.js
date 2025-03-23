@@ -37,9 +37,15 @@ const FRICTION = 0.95;               // Friction when sliding on surfaces
 const BOUNCE_FACTOR = 0.3;           // Bounciness when hitting objects
 
 // ===== Visual Effects =====
-let bounceParticles = [];  // Array to store bounce effect particles
 let screenShake = 0;       // Current screen shake duration
 let screenShakeIntensity = 0; // Screen shake intensity
+
+// Checkpoint glow effect
+const CHECKPOINT_GLOW_COLOR = 'rgba(255, 215, 0, 0.3)'; // Golden glow
+const CHECKPOINT_GLOW_SIZE = 8; // Size of glow around checkpoint
+const CHECKPOINT_PULSE_SPEED = 0.02; // Speed of pulse animation
+let checkpointGlowIntensity = 0.5; // Current glow intensity (0-1)
+let checkpointPulseDirection = 1; // 1 = increasing, -1 = decreasing
 
 // ===== Asset Loading =====
 const ASSETS = {
@@ -91,7 +97,8 @@ let player = {
     checkpoint: {                // last safe position
         x: 50,
         y: canvas.height - 100
-    }
+    },
+    checkpointPlatform: null     // current checkpoint platform
 };
 
 // ===== Level Design =====
@@ -286,28 +293,6 @@ function releaseJump() {
     
     // Start kettlebell swing animation
     player.kettlebellSwing = 1.0;
-    
-    // Create bounce effect
-    bounceParticles.push(...createBounceEffect(player.x + player.width / 2, player.y + player.height, player.chargeDirection));
-}
-
-// Function to create bounce particles
-function createBounceEffect(x, y, direction) {
-    const particleCount = 8;
-    const particles = [];
-    
-    for (let i = 0; i < particleCount; i++) {
-        particles.push({
-            x: x,
-            y: y,
-            vx: (Math.random() - 0.5) * 5 * direction,
-            vy: (Math.random() - 0.5) * 5,
-            size: Math.random() * 4 + 2,
-            life: 1.0 // Full life
-        });
-    }
-    
-    return particles;
 }
 
 function resetPlayer() {
@@ -322,6 +307,9 @@ function resetPlayer() {
     player.kettlebellAngle = 0;
     player.kettlebellSwing = 0;
     player.fallCount++;
+    
+    // Find and store the current checkpoint platform
+    player.checkpointPlatform = findCheckpointPlatform();
 }
 
 function resetGame() {
@@ -345,7 +333,8 @@ function resetGame() {
         checkpoint: {
             x: 50,
             y: canvas.height - 100
-        }
+        },
+        checkpointPlatform: null
     };
     gameState = 'playing';
 }
@@ -363,13 +352,28 @@ function checkVictory() {
     }
 }
 
+// Add a function to identify the current checkpoint platform
+function findCheckpointPlatform() {
+    // Find the platform that contains the checkpoint position
+    for (const obj of currentLevel) {
+        if (player.checkpoint.x >= obj.x && 
+            player.checkpoint.x <= obj.x + obj.width &&
+            player.checkpoint.y >= obj.y - player.height && 
+            player.checkpoint.y <= obj.y + obj.height) {
+            return obj;
+        }
+    }
+    return null; // No platform found
+}
+
 // ===== Physics =====
 function updatePhysics() {
     if (gameState !== 'playing') return;
     
     // Update charge if charging
     if (player.charging) {
-        player.chargePower = Math.min(player.chargePower + 2, MAX_CHARGE);
+        // Reduced charge rate from 2 to 0.8 for slower charging
+        player.chargePower = Math.min(player.chargePower + 0.8, MAX_CHARGE);
         
         // Update kettlebell animation while charging
         player.kettlebellAngle = Math.sin(player.chargePower / 10) * 0.2;
@@ -411,19 +415,20 @@ function updatePhysics() {
     // Update checkpoint if player is stable on a high platform
     if (player.onGround && !wasOnGround && player.y < player.checkpoint.y - 50) {
         player.checkpoint = { x: player.x, y: player.y };
+        // Update the checkpoint platform
+        player.checkpointPlatform = findCheckpointPlatform();
     }
     
-    // Update bounce particles
-    for (let i = bounceParticles.length - 1; i >= 0; i--) {
-        const particle = bounceParticles[i];
-        particle.x += particle.vx;
-        particle.y += particle.vy;
-        particle.vy += GRAVITY;
-        particle.life -= 0.05;
-        
-        if (particle.life <= 0) {
-            bounceParticles.splice(i, 1);
-        }
+    // Update checkpoint glow effect
+    checkpointGlowIntensity += CHECKPOINT_PULSE_SPEED * checkpointPulseDirection;
+    
+    // Reverse direction at min/max intensity
+    if (checkpointGlowIntensity >= 1) {
+        checkpointGlowIntensity = 1;
+        checkpointPulseDirection = -1;
+    } else if (checkpointGlowIntensity <= 0.3) {
+        checkpointGlowIntensity = 0.3;
+        checkpointPulseDirection = 1;
     }
 }
 
@@ -469,41 +474,11 @@ function checkCollisions() {
                 // Hitting left side of object
                 player.x = obj.x - player.width;
                 player.vx = -player.vx * (obj.bounce || BOUNCE_FACTOR);
-                
-                // Play bounce sound if velocity is significant
-                if (Math.abs(player.vx) > 2) {
-                    bounceSound.currentTime = 0;
-                    bounceSound.play();
-                    
-                    // Create bounce particles
-                    bounceParticles = bounceParticles.concat(
-                        createBounceEffect(player.x + player.width, player.y + player.height/2, 1)
-                    );
-                    
-                    // Add screen shake based on impact velocity
-                    screenShakeIntensity = Math.min(5, Math.abs(player.vx) / 2);
-                    screenShake = 5;
-                }
             }
             else if (minOverlap === overlapRight && player.vx <= 0) {
                 // Hitting right side of object
                 player.x = obj.x + obj.width;
                 player.vx = -player.vx * (obj.bounce || BOUNCE_FACTOR);
-                
-                // Play bounce sound if velocity is significant
-                if (Math.abs(player.vx) > 2) {
-                    bounceSound.currentTime = 0;
-                    bounceSound.play();
-                    
-                    // Create bounce particles
-                    bounceParticles = bounceParticles.concat(
-                        createBounceEffect(player.x, player.y + player.height/2, -1)
-                    );
-                    
-                    // Add screen shake based on impact velocity
-                    screenShakeIntensity = Math.min(5, Math.abs(player.vx) / 2);
-                    screenShake = 5;
-                }
             }
         }
     }
@@ -512,77 +487,30 @@ function checkCollisions() {
     if (player.x < 0) {
         player.x = 0;
         player.vx = -player.vx * BOUNCE_FACTOR;
-        
-        // Play bounce sound if velocity is significant
-        if (Math.abs(player.vx) > 2) {
-            bounceSound.currentTime = 0;
-            bounceSound.play();
-            
-            // Create bounce particles
-            bounceParticles = bounceParticles.concat(
-                createBounceEffect(player.x, player.y + player.height/2, -1)
-            );
-            
-            // Add screen shake based on impact velocity
-            screenShakeIntensity = Math.min(5, Math.abs(player.vx) / 2);
-            screenShake = 5;
-        }
     }
     else if (player.x + player.width > canvas.width) {
         player.x = canvas.width - player.width;
         player.vx = -player.vx * BOUNCE_FACTOR;
-        
-        // Play bounce sound if velocity is significant
-        if (Math.abs(player.vx) > 2) {
-            bounceSound.currentTime = 0;
-            bounceSound.play();
-            
-            // Create bounce particles
-            bounceParticles = bounceParticles.concat(
-                createBounceEffect(player.x + player.width, player.y + player.height/2, 1)
-            );
-            
-            // Add screen shake based on impact velocity
-            screenShakeIntensity = Math.min(5, Math.abs(player.vx) / 2);
-            screenShake = 5;
-        }
     }
 }
 
 // ===== Rendering =====
 function render() {
-    // Clear canvas
+    // Clear the canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Apply screen shake if active
-    if (screenShake > 0) {
-        const shakeX = (Math.random() - 0.5) * screenShakeIntensity;
-        const shakeY = (Math.random() - 0.5) * screenShakeIntensity;
-        ctx.save();
-        ctx.translate(shakeX, shakeY);
-        screenShake--;
-    }
-    
     // Draw background (gradient for now)
-    const bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    bgGradient.addColorStop(0, '#2c3e50');
-    bgGradient.addColorStop(1, '#4a6572');
-    ctx.fillStyle = bgGradient;
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, '#1a1a2e');
+    gradient.addColorStop(1, '#16213e');
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Draw level objects
+    // Draw level
     drawLevel();
     
     // Draw player
     drawPlayer();
-    
-    // Draw bounce particles
-    for (const particle of bounceParticles) {
-        ctx.fillStyle = `rgba(255, 153, 51, ${particle.life})`;
-        ctx.beginPath();
-        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-        ctx.fill();
-    }
     
     // Draw UI
     drawUI();
@@ -591,16 +519,34 @@ function render() {
     if (gameState === 'victory') {
         drawVictoryScreen();
     }
-    
-    // Reset context if screen shake was applied
-    if (screenShake > 0) {
-        ctx.restore();
-    }
 }
 
 function drawLevel() {
     // Draw each object in the level
     for (const obj of currentLevel) {
+        // Draw checkpoint glow for the current checkpoint position only
+        // Check if this platform contains the player's checkpoint position
+        if ((obj.x <= player.checkpoint.x && 
+             obj.x + obj.width >= player.checkpoint.x &&
+             obj.y <= player.checkpoint.y + player.height && 
+             obj.y + obj.height >= player.checkpoint.y)) {
+            
+            // Draw glowing effect
+            ctx.fillStyle = CHECKPOINT_GLOW_COLOR;
+            ctx.globalAlpha = checkpointGlowIntensity;
+            
+            // Draw a glowing rectangle slightly larger than the platform
+            ctx.fillRect(
+                obj.x - CHECKPOINT_GLOW_SIZE, 
+                obj.y - CHECKPOINT_GLOW_SIZE, 
+                obj.width + CHECKPOINT_GLOW_SIZE * 2, 
+                obj.height + CHECKPOINT_GLOW_SIZE * 2
+            );
+            
+            // Reset alpha
+            ctx.globalAlpha = 1.0;
+        }
+        
         // Choose color based on object type
         switch(obj.type) {
             case 'ground':
