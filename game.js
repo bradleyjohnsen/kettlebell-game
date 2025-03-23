@@ -1,4 +1,4 @@
-// Kettlebell Climber - A "Getting Over It" inspired physics-based platformer
+// Kettlebell Game - A "Getting Over It" inspired physics-based platformer
 // Main game logic
 
 // Get audio elements

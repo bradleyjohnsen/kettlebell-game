@@ -1,10 +1,10 @@
-# Kettlebell Climber
+# Kettlebell Game
 
 A physics-based platformer inspired by "Getting Over It," where you control a character wielding a kettlebell to climb a junk pile.
 
 ## Game Concept
 
-In Kettlebell Climber, you control a character who uses a kettlebell to propel themselves up a pile of junk. The core mechanic is a "kettlebell clean jump" - you charge power (0-100%) and then release to leap in a frog-like motion. Direction is controlled by input (hold left or right), and the power of your jump depends on how long you charge.
+In Kettlebell Game, you control a character who uses a kettlebell to propel themselves up a pile of junk. The core mechanic is a "kettlebell clean jump" - you charge power (0-100%) and then release to leap in a frog-like motion. Direction is controlled by input (hold left or right), and the power of your jump depends on how long you charge.
 
 ## How to Play
 
