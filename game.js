@@ -364,13 +364,23 @@ function checkVictory() {
     // Check if player reached the goal platform (last platform in the level)
     const goal = currentLevel[currentLevel.length - 1];
     
-    // More lenient collision detection for the goal
-    if (
-        player.x + player.width > goal.x && 
-        player.x < goal.x + goal.width &&
-        player.y + player.height > goal.y &&
-        player.y < goal.y + goal.height
-    ) {
+    // Debug - log player position and goal position
+    console.log(`Player: (${player.x}, ${player.y}), Goal: (${goal.x}, ${goal.y}, ${goal.width}, ${goal.height})`);
+    
+    // Check if player is on the goal platform with a more reliable method
+    // Use a simpler overlap check focused on the player's feet
+    const playerFeetX = player.x + (player.width / 2); // Center of player horizontally
+    const playerFeetY = player.y + player.height; // Bottom of player (feet)
+    
+    const onGoalPlatform = 
+        playerFeetX >= goal.x && 
+        playerFeetX <= goal.x + goal.width &&
+        playerFeetY >= goal.y && 
+        playerFeetY <= goal.y + goal.height + 5; // Add a small buffer below
+    
+    console.log(`On goal platform: ${onGoalPlatform}`);
+    
+    if (onGoalPlatform) {
         // Immediately stop the game and display victory
         gameState = 'victory';
         
