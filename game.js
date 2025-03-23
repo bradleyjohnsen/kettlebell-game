@@ -242,6 +242,20 @@ canvas.addEventListener('touchstart', (e) => {
     const touch = e.touches[0];
     const rect = canvas.getBoundingClientRect();
     const touchX = touch.clientX - rect.left;
+    const touchY = touch.clientY - rect.top;
+    
+    // Handle victory screen touch
+    if (gameState === 'victory') {
+        resetGame();
+        return;
+    }
+    
+    // Top 15% of screen = restart to checkpoint
+    if (touchY < rect.height * 0.15) {
+        keys.restart = true;
+        resetPlayer();
+        return;
+    }
     
     // Left side of screen = charge left, right side = charge right
     if (touchX < rect.width / 2) {
@@ -261,6 +275,11 @@ canvas.addEventListener('touchstart', (e) => {
 
 canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
+    
+    // Reset restart key
+    keys.restart = false;
+    
+    // Handle jump release
     if (keys.left) {
         keys.left = false;
         if (player.charging && player.chargeDirection === -1) {
@@ -779,8 +798,15 @@ function drawUI() {
     
     // Draw controls help
     ctx.textAlign = 'right';
-    ctx.fillText('Hold Left/Right to charge, release to jump', canvas.width - 20, 30);
-    ctx.fillText('Press R to reset to checkpoint', canvas.width - 20, 55);
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        // Mobile instructions
+        ctx.fillText('Tap left/right side to jump', canvas.width - 20, 30);
+        ctx.fillText('Tap top of screen to reset', canvas.width - 20, 55);
+    } else {
+        // Desktop instructions
+        ctx.fillText('Hold Left/Right to charge, release to jump', canvas.width - 20, 30);
+        ctx.fillText('Press R to reset to checkpoint', canvas.width - 20, 55);
+    }
 }
 
 function drawVictoryScreen() {
@@ -812,7 +838,11 @@ function drawVictoryScreen() {
     
     // Restart prompt
     ctx.font = '20px Arial';
-    ctx.fillText('Press SPACE to play again', canvas.width / 2, canvas.height / 2 + 180);
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        ctx.fillText('Tap anywhere to play again', canvas.width / 2, canvas.height / 2 + 180);
+    } else {
+        ctx.fillText('Press SPACE to play again', canvas.width / 2, canvas.height / 2 + 180);
+    }
 }
 
 // ===== Game Loop =====
