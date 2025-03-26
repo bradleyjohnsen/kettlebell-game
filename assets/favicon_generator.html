@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Favicon Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            margin: 20px 0;
+        }
+        .download-btn {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 0;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Kettlebell Game Favicon Generator</h1>
+    <p>This tool generates a favicon for the Kettlebell Game.</p>
+    
+    <canvas id="faviconCanvas" width="32" height="32"></canvas>
+    <br>
+    <button id="downloadBtn" class="download-btn">Download Favicon</button>
+    
+    <script>
+        // Get canvas and context
+        const canvas = document.getElementById('faviconCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Draw the favicon
+        function drawFavicon() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background circle
+            ctx.fillStyle = '#191970'; // Deep blue background
+            ctx.beginPath();
+            ctx.arc(16, 16, 16, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw kettlebell body
+            ctx.fillStyle = '#333333';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(16, 18, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Draw kettlebell handle
+            ctx.fillStyle = '#555555';
+            ctx.beginPath();
+            ctx.rect(10, 12, 12, 3);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Draw handle top curve
+            ctx.beginPath();
+            ctx.moveTo(10, 12);
+            ctx.bezierCurveTo(10, 8, 22, 8, 22, 12);
+            ctx.fill();
+            ctx.stroke();
+        }
+        
+        // Setup download button
+        document.getElementById('downloadBtn').addEventListener('click', function() {
+            // Convert canvas to data URL
+            const dataURL = canvas.toDataURL('image/png');
+            
+            // Create download link
+            const link = document.createElement('a');
+            link.download = 'favicon.png';
+            link.href = dataURL;
+            link.click();
+        });
+        
+        // Draw the favicon when page loads
+        window.onload = drawFavicon;
+    </script>
+</body>
+</html>
