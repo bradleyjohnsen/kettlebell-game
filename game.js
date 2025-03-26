@@ -192,6 +192,10 @@ const keys = {
     restart: false
 };
 
+// Track mouse state
+let mouseDown = false;
+let mouseX = 0;
+
 document.addEventListener('keydown', (e) => {
     if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
         keys.left = true;
@@ -233,6 +237,96 @@ document.addEventListener('keyup', (e) => {
     }
     if (e.code === 'KeyR') {
         keys.restart = false;
+    }
+});
+
+// Mouse controls
+canvas.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseDown = true;
+    
+    // Handle victory screen click
+    if (gameState === 'victory') {
+        resetGame();
+        return;
+    }
+    
+    // Top 15% of screen = restart to checkpoint
+    if ((e.clientY - rect.top) < rect.height * 0.15) {
+        keys.restart = true;
+        resetPlayer();
+        return;
+    }
+    
+    // Check if click is to the left or right of player's center
+    const playerCenterX = player.x + (player.width / 2);
+    const scaledPlayerCenterX = (playerCenterX / canvas.width) * rect.width;
+    
+    if (mouseX < scaledPlayerCenterX) {
+        keys.left = true;
+        if (!player.charging && player.onGround) {
+            player.charging = true;
+            player.chargeDirection = -1;
+        }
+    } else {
+        keys.right = true;
+        if (!player.charging && player.onGround) {
+            player.charging = true;
+            player.chargeDirection = 1;
+        }
+    }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    if (mouseDown) {
+        const rect = canvas.getBoundingClientRect();
+        mouseX = e.clientX - rect.left;
+        
+        // Check if mouse is to the left or right of player's center
+        const playerCenterX = player.x + (player.width / 2);
+        const scaledPlayerCenterX = (playerCenterX / canvas.width) * rect.width;
+        
+        // If direction changes while charging, update accordingly
+        if (mouseX < scaledPlayerCenterX) {
+            if (keys.right) {
+                keys.right = false;
+                keys.left = true;
+                if (player.charging && player.onGround) {
+                    player.chargeDirection = -1;
+                }
+            }
+        } else {
+            if (keys.left) {
+                keys.left = false;
+                keys.right = true;
+                if (player.charging && player.onGround) {
+                    player.chargeDirection = 1;
+                }
+            }
+        }
+    }
+});
+
+canvas.addEventListener('mouseup', (e) => {
+    mouseDown = false;
+    
+    // Reset restart key
+    keys.restart = false;
+    
+    // Handle jump release
+    if (keys.left) {
+        keys.left = false;
+        if (player.charging && player.chargeDirection === -1) {
+            releaseJump();
+        }
+    }
+    if (keys.right) {
+        keys.right = false;
+        if (player.charging && player.chargeDirection === 1) {
+            releaseJump();
+        }
     }
 });
 
@@ -801,7 +895,7 @@ function drawUI() {
     ctx.fillText(`Jumps: ${player.jumpCount}`, 20, 30);
     
     // Draw fall count
-    ctx.fillText(`Falls: ${player.fallCount}`, 20, 55);
+    ctx.fillText(`Resets: ${player.fallCount}`, 20, 55);
     
     // Draw time
     const elapsedTime = Math.floor((Date.now() - player.startTime) / 1000);
@@ -848,7 +942,7 @@ function drawVictoryScreen() {
     
     ctx.fillText(`Time: ${minutes}:${seconds.toString().padStart(2, '0')}`, canvas.width / 2, canvas.height / 2 + 50);
     ctx.fillText(`Jumps: ${player.jumpCount}`, canvas.width / 2, canvas.height / 2 + 90);
-    ctx.fillText(`Falls: ${player.fallCount}`, canvas.width / 2, canvas.height / 2 + 130);
+    ctx.fillText(`Resets: ${player.fallCount}`, canvas.width / 2, canvas.height / 2 + 130);
     
     // Restart prompt
     ctx.font = '20px Arial';
