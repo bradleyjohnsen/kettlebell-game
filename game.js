@@ -36,6 +36,19 @@ const HORIZONTAL_VELOCITY_SCALE = 10; // Scale factor for horizontal velocity
 const FRICTION = 0.95;               // Friction when sliding on surfaces
 const BOUNCE_FACTOR = 0.3;           // Bounciness when hitting objects
 
+// Reset button configuration
+const resetButton = {
+    x: 20,
+    y: 110,
+    width: 80,
+    height: 30,
+    text: "RESET",
+    color: "#e74c3c",
+    hoverColor: "#c0392b",
+    textColor: "#ffffff",
+    isHovered: false
+};
+
 // ===== Visual Effects =====
 let screenShake = 0;       // Current screen shake duration
 let screenShakeIntensity = 0; // Screen shake intensity
@@ -245,7 +258,20 @@ canvas.addEventListener('mousedown', (e) => {
     e.preventDefault();
     const rect = canvas.getBoundingClientRect();
     mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
     mouseDown = true;
+    
+    // Check if reset button was clicked
+    const scaledX = (mouseX / rect.width) * canvas.width;
+    const scaledY = (mouseY / rect.height) * canvas.height;
+    
+    if (scaledX >= resetButton.x && 
+        scaledX <= resetButton.x + resetButton.width && 
+        scaledY >= resetButton.y && 
+        scaledY <= resetButton.y + resetButton.height) {
+        resetGame();
+        return;
+    }
     
     // Handle victory screen click
     if (gameState === 'victory') {
@@ -280,10 +306,22 @@ canvas.addEventListener('mousedown', (e) => {
 });
 
 canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    // Check if mouse is over reset button
+    const scaledX = (mouseX / rect.width) * canvas.width;
+    const scaledY = (mouseY / rect.height) * canvas.height;
+    
+    resetButton.isHovered = (
+        scaledX >= resetButton.x && 
+        scaledX <= resetButton.x + resetButton.width && 
+        scaledY >= resetButton.y && 
+        scaledY <= resetButton.y + resetButton.height
+    );
+    
     if (mouseDown) {
-        const rect = canvas.getBoundingClientRect();
-        mouseX = e.clientX - rect.left;
-        
         // Check if mouse is to the left or right of player's center
         const playerCenterX = player.x + (player.width / 2);
         const scaledPlayerCenterX = (playerCenterX / canvas.width) * rect.width;
@@ -337,6 +375,18 @@ canvas.addEventListener('touchstart', (e) => {
     const rect = canvas.getBoundingClientRect();
     const touchX = touch.clientX - rect.left;
     const touchY = touch.clientY - rect.top;
+    
+    // Check if reset button was touched
+    const scaledX = (touchX / rect.width) * canvas.width;
+    const scaledY = (touchY / rect.height) * canvas.height;
+    
+    if (scaledX >= resetButton.x && 
+        scaledX <= resetButton.x + resetButton.width && 
+        scaledY >= resetButton.y && 
+        scaledY <= resetButton.y + resetButton.height) {
+        resetGame();
+        return;
+    }
     
     // Handle victory screen touch
     if (gameState === 'victory') {
@@ -904,12 +954,27 @@ function drawUI() {
     
     ctx.fillText(`Time: ${minutes}:${seconds.toString().padStart(2, '0')}`, 20, 80);
     
+    // Draw reset button
+    ctx.fillStyle = resetButton.isHovered ? resetButton.hoverColor : resetButton.color;
+    ctx.fillRect(resetButton.x, resetButton.y, resetButton.width, resetButton.height);
+    
+    // Button border
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(resetButton.x, resetButton.y, resetButton.width, resetButton.height);
+    
+    // Button text
+    ctx.fillStyle = resetButton.textColor;
+    ctx.font = 'bold 14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(resetButton.text, resetButton.x + resetButton.width/2, resetButton.y + resetButton.height/2 + 5);
+    
     // Draw controls help
     ctx.textAlign = 'right';
     if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
         // Mobile instructions
         ctx.fillText('Tap left/right side to jump', canvas.width - 20, 30);
-        ctx.fillText('Tap top of screen to reset', canvas.width - 20, 55);
+        ctx.fillText('Tap top of screen to reset to checkpoint', canvas.width - 20, 55);
     } else {
         // Desktop instructions
         ctx.fillText('Hold Left/Right to charge, release to jump', canvas.width - 20, 30);
